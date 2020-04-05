@@ -4,7 +4,7 @@ import intervals as I
 import socket
 
 from collections import OrderedDict
-from signature import *
+from crypting import *
 
 global nbmsg
 global UDPSocket, setpairs, moi, listmsg
