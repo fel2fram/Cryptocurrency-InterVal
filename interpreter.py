@@ -2,7 +2,7 @@ import sys
 import copy
 import intervals as I
 import os, signal
-from validator0_2 import *
+from network import *
 
 nbpiece = 500
 seuil = 10
