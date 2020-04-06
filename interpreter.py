@@ -121,14 +121,21 @@ def recep(compte, (sender, receiver, nxtlvl)) :
     f = find_parts(compte)
     if not f :
         f = [I.empty()]
+    newsender = I.empty()
+    newreceiver = I.empty()
     for senderj in find_parts(sender) :
         receiverj = sousinter(sender, senderj, receiver)
-        for receiverk in find_parts(receiverj) :
-            if senderj not in lc or not lc[senderj].trans :
-                output(moncompte, senderj, receiverk, nxtlvl)
-            for comptei in f:
-                #print("debug compte", comptei, "sender", senderj, "receiver", receiverk, "parts", lc.keys())
-                success |= recep_aux(comptei, senderj, receiverk, nxtlvl)
+        if senderj not in lc or not lc[senderj].trans :
+            newsender |= senderj
+            newreceiver |= receiverj
+        for comptei in f:
+            #print("debug compte", comptei, "sender", senderj, "receiver", receiverk, "parts", lc.keys())
+            success |= recep_aux(comptei, senderj, receiverj, nxtlvl)
+    newsenderl = list(newsender)
+    newreceiverl = list(newreceiver)
+    if newsenderl != [I.empty()] :
+        for (i, senderk) in enumerate(newsenderl) :
+            output(moncompte, senderk, newreceiverl[i], nxtlvl)
     return success
 
 moncompte = createcompte()

@@ -9,7 +9,7 @@ from crypting import *
 global nbmsg
 global UDPSocket, setpairs, moi, listmsg
 setpairs = set()
-listmsg = set()
+listmsg = dict()
 
 def ico(x, y) :
     return I.closedopen(x, y)
@@ -30,23 +30,24 @@ def askip() :
 
 def maj(adr):
     global listmsg
-    for msg in listmsg :
-        UDPSocket.sendto(str.encode(msg), adr)
+    for clessh in listmsg :
+        for msg in listmsg[clessh] :
+            UDPSocket.sendto(str.encode(clessh + " " + msg), adr)
 
 def input() :
     global setpairs, listmsg
     while(1) :
-        (line2, adr) = UDPSocket.recvfrom(1024)
+        (line, adr) = UDPSocket.recvfrom(1024)
         if adr not in setpairs :
             setpairs.add(adr)
             maj(adr)
         for lui in setpairs.difference({adr, moi}) :
-            UDPSocket.sendto(str.encode(line2), lui)
-        [reste, signa] = line2.rsplit(' ', 1)
-        [clessh1, clessh2, reste] = reste.split(' ', 2)
+            UDPSocket.sendto(str.encode(line), lui)
+        [clessh1, clessh2, corps] = line.split(' ', 2)
+        [reste, signa] = corps.rsplit(' ', 1)
         clessh = clessh1 + " " + clessh2
         if checksign(clessh, reste, signa) :
-            listmsg.add(line2)
+            listmsg[clessh] = listmsg.get(clessh, set()).union({corps})
             print("msg", reste)
             monint = ascii_to_int(clessh) % 1000
             l = map(int, reste.split(" "))
