@@ -5,7 +5,7 @@ import os, signal
 from network import *
 
 nbpiece = 500
-seuil = 10
+seuil = 2
 
 class Compte :
     def __init__(self, piece, niveau) :
@@ -14,13 +14,16 @@ class Compte :
         self.piece = piece
         self.defense = set()
 
+def ico(x, y) :
+    return I.closedopen(x, y)
+
 lc = dict()
 lc[ico(0, nbpiece)] = Compte({ico(0, nbpiece)}, {0})
 lc[ico(nbpiece, I.inf) | ico(-I.inf, 0)] = Compte(set(), set())
-global comptes_actifs, comptes_morts, moncompte
+global comptes_actifs, comptes_morts
 comptes_actifs = ico(0, nbpiece)
 comptes_morts = I.empty()
-askip()
+mes_comptes = list()
 
 def sousinter(K, k, V) :
     if V == I.empty() or K == I.empty() or k == I.empty() :
@@ -85,6 +88,7 @@ def update(sender, ((receiver, nxtlvl), votants)) :
         if lc[part].niveau.intersection(lc[sender].niveau) :
             for piece in lc[part].piece :
                 union |= piece
+    #print("sizeunion", union, sizeunion(union), seuil)
     if sizeunion(union) < seuil or not selfvote:
         return False
     if not lc[receiver].piece :
@@ -110,9 +114,6 @@ def recep_aux(compte, sender, receiver, nxtlvl) :
     return False
 
 def recep(compte, (sender, receiver, nxtlvl)) :
-    if sizeunion(sender) != sizeunion(receiver) :
-        receiver = sousinter(sender, sender, receiver)
-        print("taille receiver corrigee", receiver)
     sender -= sender & receiver
     receiver -= sender & receiver
     check(compte, I.empty())
@@ -121,39 +122,40 @@ def recep(compte, (sender, receiver, nxtlvl)) :
     f = find_parts(compte)
     if not f :
         f = [I.empty()]
-    newsender = I.empty()
-    newreceiver = I.empty()
+    newsender, newreceiver = I.empty(), I.empty()
     for senderj in find_parts(sender) :
         receiverj = sousinter(sender, senderj, receiver)
-        if senderj not in lc or not lc[senderj].trans :
+        if senderj.upper - 1 <= compte <= senderj.lower and\
+         (senderj not in lc or not lc[senderj].trans) :
             newsender |= senderj
             newreceiver |= receiverj
         for comptei in f:
             #print("debug compte", comptei, "sender", senderj, "receiver", receiverk, "parts", lc.keys())
             success |= recep_aux(comptei, senderj, receiverj, nxtlvl)
-    newsenderl = list(newsender)
-    newreceiverl = list(newreceiver)
+    newsenderl, newreceiverl = list(newsender), list(newreceiver)
     if newsenderl != [I.empty()] :
         for (i, senderk) in enumerate(newsenderl) :
-            output(moncompte, senderk, newreceiverl[i], nxtlvl)
+            for j in mes_comptes :
+                output(j, senderk.lower, senderk.upper, newreceiverl[i].lower, nxtlvl)
     return success
 
-moncompte = createcompte()
+askip()
+monint = createcompte()
+mes_comptes.append(monint)
+
 while(1) :
     child = os.fork()
     if not child :
         while(1) :
             l = sys.stdin.readline().rstrip().split(" ")
             if len(l) == 4 :
-                [sl, su, rl, nxtlvl] = map(int,l)
-                sg, sd = min(sl, su), max(sl, su)
-                rg, rd = min(rl, rl + sd - sg), max(rl, rl + sd - sg)
-                output(moncompte, ico(sg, sd), ico(rg, rd), nxtlvl)
+                [sl, su, rl, nxtlvl] = map(float,l)
+                output(mes_comptes[-1], sl, su, rl, nxtlvl)
             else :
                 print("ligne invalide")
     print("dead :", comptes_morts)
     print("position :", comptes_actifs)
-    print("compte :", moncompte)
-    [cl, cu, sl, su, rl, ru, nxtlvl] = input()
-    recep(ico(min(cl, cu), max(cl, cu)), (ico(min(sl, su), max(sl, su)), ico(min(rl, ru), max(rl, ru)), nxtlvl))
+    print("compte :", ico(mes_comptes[-1], mes_comptes[-1] + 1))
+    [compte, sl, su, rl, nxtlvl] = input(mes_comptes)
+    recep(ico(compte, compte + 1), (ico(sl, su), ico(rl,rl + su - sl), nxtlvl))
     os.kill(child, signal.SIGTERM)

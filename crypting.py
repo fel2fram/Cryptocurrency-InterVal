@@ -5,14 +5,10 @@ import base64
 import binascii
 import intervals as I
 
-global moncompte, clessh
+comptes = dict()
 
-def ico(x, y) :
-    return I.closedopen(x, y)
-
-def getssh() :
-    global clessh
-    return clessh
+def getssh(compte) :
+    return comptes[compte][2]
 
 def rsakeys():
      length=1024
@@ -26,9 +22,8 @@ def sign(privatekey,data):
 def verify(publickey,data,sign):
      return publickey.verify(data,(int(base64.b64decode(sign)),))
 
-def masign(msg) :
-    global pv
-    return(sign(pv, msg))
+def masign(msg, compte) :
+    return(sign(comptes[compte][0], msg))
 
 def checksign(user, str, signa) :
     userkey = RSA.importKey(user)
@@ -48,11 +43,9 @@ def int_to_ascii(entier):
     return bytes
 
 def createcompte() :
-    global pv, pb, moncompte, clessh
     pv, pb = rsakeys()
     clessh = pb.exportKey(format='OpenSSH')
     monint = int(ascii_to_int(clessh)) % 1000
-    moncompte = ico(monint, monint + 10)
-    print("votre compte est", moncompte)
-
-    return moncompte
+    print("votre compte est", monint, monint+1)
+    comptes[monint] = (pv, pb, clessh)
+    return monint

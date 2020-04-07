@@ -7,18 +7,10 @@ from collections import OrderedDict
 from crypting import *
 
 global nbmsg
-global UDPSocket, setpairs, moi, listmsg
+global UDPSocket, setpairs, moi, listmsg, nbmsg
 setpairs = set()
 listmsg = dict()
-
-def ico(x, y) :
-    return I.closedopen(x, y)
-
-def getbounds(itv) :
-    if itv == I.empty() :
-        return (str(0) + " " + str(0) + " ")
-    else :
-        return(str(itv.lower) + " " + str(itv.upper) + " ")
+nbmsg = 0
 
 def askip() :
     global UDPSocket, lui, moi
@@ -34,28 +26,35 @@ def maj(adr):
         for msg in listmsg[clessh] :
             UDPSocket.sendto(str.encode(clessh + " " + msg), adr)
 
-def input() :
-    global setpairs, listmsg
+def input(mes_comptes) :
+    global setpairs, listmsg, nbmsg
     while(1) :
         (line, adr) = UDPSocket.recvfrom(1024)
         if adr not in setpairs :
             setpairs.add(adr)
             maj(adr)
-        for lui in setpairs.difference({adr, moi}) :
-            UDPSocket.sendto(str.encode(line), lui)
         [clessh1, clessh2, corps] = line.split(' ', 2)
         [reste, signa] = corps.rsplit(' ', 1)
         clessh = clessh1 + " " + clessh2
+        print("nbmessages", nbmsg)
         if checksign(clessh, reste, signa) :
-            listmsg[clessh] = listmsg.get(clessh, set()).union({corps})
-            print("msg", reste)
-            monint = ascii_to_int(clessh) % 1000
-            l = map(int, reste.split(" "))
-            if l[0] >= monint and l[1] <= monint + 10 :
-                return l
+            if clessh not in listmsg or not corps in listmsg[clessh] :
+                for lui in setpairs.difference({adr, moi}) :
+                    UDPSocket.sendto(str.encode(line), lui)
+                nbmsg +=1
+                if nbmsg % 20 == 3 :
+                    mes_comptes.append(createcompte())
+                    output(mes_comptes[-2], mes_comptes[-2], mes_comptes[-2] + 1, mes_comptes[-1] , nbmsg/20 + 1)
+                listmsg[clessh] = listmsg.get(clessh, set()).union({corps})
+                print("msg", reste)
+                monint = int(ascii_to_int(clessh) % 1000)
+                l = map(float, reste.split(" "))
+                if l[0] == monint :
+                    return l
 
-def output(compte, sender, receiver, nxtlvl) :
+def output(monint, sg, sd, rg, nxtlvl) :
     global UDPSocket, setpairs, moi
-    clessh = getssh()
-    msg = getbounds(compte) + getbounds(sender) + getbounds(receiver) + str(nxtlvl)
-    UDPSocket.sendto(str.encode(clessh + " " + msg + " " + masign(msg)), moi)
+    clessh = getssh(monint)
+    msg = str(float(monint)) + " "  + str(float(sg)) + " " + \
+    str(float(sd)) + " " + str(float(rg)) + " " + str(float(nxtlvl))
+    UDPSocket.sendto(str.encode(clessh + " " + msg + " " + masign(msg, monint)), moi)
