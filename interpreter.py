@@ -76,7 +76,8 @@ def sizeunion(union) :
         s+= i.upper - i.lower
     return s
 
-def update(sender, ((receiver, nxtlvl), votants)) :
+def update(param) :
+    sender, ((receiver, nxtlvl), votants) = param
     global comptes_actifs, comptes_morts
     if lc[sender].niveau and min(lc[sender].niveau) > nxtlvl \
     or lc[sender].piece.issubset(lc[receiver].piece) :
@@ -113,7 +114,8 @@ def recep_aux(compte, sender, receiver, nxtlvl) :
         lc[compte].defense.add((sender, receiver, nxtlvl))
     return False
 
-def recep(compte, (sender, receiver, nxtlvl)) :
+def recep(param) :
+    compte, (sender, receiver, nxtlvl)
     sender -= sender & receiver
     receiver -= sender & receiver
     check(compte, I.empty())
