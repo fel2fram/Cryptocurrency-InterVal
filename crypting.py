@@ -1,51 +1,32 @@
-import Crypto
 from Crypto.PublicKey import RSA
-from Crypto import Random
-import base64
-import binascii
-import intervals as I
+from hashlib import sha512
 
-comptes = dict()
+global keyPair
 
-def getssh(compte) :
-    return comptes[compte][2]
+def getpb():
+    return(keyPair.n, keyPair.e)
 
-def rsakeys():
-     length=1024
-     privatekey = RSA.generate(length, Random.new().read)
-     publickey = privatekey.publickey()
-     return privatekey, publickey
+def masign(msg) :
+    global keyPair
+    hash = int.from_bytes(sha512(msg.encode()).digest(), byteorder='big')
+    signature = pow(hash, keyPair.d, keyPair.n)
+    return hex(signature)
 
-def sign(privatekey,data):
-    return base64.b64encode(str((privatekey.sign(data,''))[0]).encode())
+def checksign(e, n, str, signature) :
+    hash = int.from_bytes(sha512(str.encode()).digest(), byteorder='big')
+    hashFromSignature = pow(signature, n, e)
+    return (hash == hashFromSignature)
 
-def verify(publickey,data,sign):
-     return publickey.verify(data,(int(base64.b64decode(sign)),))
-
-def masign(msg, compte) :
-    return(sign(comptes[compte][0], msg))
-
-def checksign(user, str, signa) :
-    userkey = RSA.importKey(user)
-    return verify(userkey, str, signa)
-
-def ascii_to_int(bytes):
-    result = 0
-    for b in bytes:
-        result = result * 256 + ord(b)
-    return result
-
-def int_to_ascii(entier):
-    bytes = ''
-    while entier :
-        bytes = chr(entier % 256) +bytes
-        entier /= 256
-    return bytes
+def distrib_init() : #pour plus tard
+    global keyPair
+    keyPair = RSA.importKey('-----BEGIN RSA PRIVATE KEY-----\nMIICXAIBAAKBgQCTzcBNMUeaXWkd3XeCE02LUp1jp7m3yWYBHXRSA6QDNZRr45or\nArs5kTp+QAWISAc41ZwZRQWcXsGsZ12BvdsCVcrJTzQxaukW/a+ESk9wgXHhA9vR\nlFWhtu9xxu4zrj5LR6mxgxMdPzyaxCdizD5Bblk7DgCALF84I93awKatgwIDAQAB\nAoGAG+F7jXQm0CEfw5DzyrcucQIYC2TnvRoCImK2fwQNy8cvJLzt54Af5ieVk5wr\nDv6bUibFR+UDvnAHc6iZ9G/mYHxaeAddQ2ZlseMoC0Tl/sSWHWYuDvG2yN+0dbWV\n5w+9avtwC0+qYVLpvpqjiDAnDpsd0P6tGXMFjSZ4jXWuWUECQQC2ihrQXV1cpYod\nRlFOIBFXynVSuRh7LPhpceb+wChQbIRVSIsQNm2QqQD7Yja98Ck9+xlWqXdXbZmn\nH6816cxBAkEAz0kKJs3ofbDEgtrFxf9mESthnzF248zsjSuXw8mZJlVW5mOenzl6\nYmbMj+oGclwo+rcm9JTQRr5ShTKh0eoYwwJAcS1rtqlMy7avzbrdim0Dk8UpvSKa\ndTTKyMYgjO8jj8nYuvABmQnGIR1ISJT6kAWp7I4VhdAI+KIx1JcmkWzmgQJBAL3z\n5/qhbPFpwNtNUjncjxMi1wYEVTfyPcAsd5oyr0bio4zjM6QkDxQHsmQbiKbZ76+5\nkVhG2wpJNOPc/0+XH/MCQGLWDUIqa5K/bnJUwlrUJhno+CJ4SCG7SPvXwpGua0Dk\n7L6pP5eFZFfFmcUc1olw58Ycj74F4Q4gWsbvWX6K+H4=\n-----END RSA PRIVATE KEY-----')
+    monint = int(keyPair.n) % 1000
+    return monint
 
 def createcompte() :
-    pv, pb = rsakeys()
-    clessh = pb.exportKey(format='OpenSSH')
-    monint = int(ascii_to_int(clessh)) % 1000
-    print("votre compte est", monint, monint+1)
-    comptes[monint] = (pv, pb, clessh)
+    global keyPair
+    keyPair = RSA.generate(bits=1024)
+    clessh = str(keyPair.n) + " " + str(keyPair.e)
+    print("votre clé", keyPair.exportKey('PEM'))
+    monint = int(keyPair.n) % 1000
     return monint

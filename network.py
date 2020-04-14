@@ -6,11 +6,9 @@ import socket
 from collections import OrderedDict
 from crypting import *
 
-global nbmsg
 global UDPSocket, setpairs, moi, listmsg, nbmsg
 setpairs = set()
 listmsg = dict()
-nbmsg = 0
 
 def askip() :
     global UDPSocket, lui, moi
@@ -18,7 +16,11 @@ def askip() :
     UDPSocket = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
     moi = (sys.stdin.readline().rstrip(), int(sys.stdin.readline().rstrip()))
     UDPSocket.bind(moi)
+    setpairs.add(moi)
     setpairs.add((sys.stdin.readline().rstrip(), int(sys.stdin.readline().rstrip())))
+    if moi[1] == 3000 :
+        return True
+    return False
 
 def maj(adr):
     global listmsg
@@ -26,35 +28,29 @@ def maj(adr):
         for msg in listmsg[clessh] :
             UDPSocket.sendto(str.encode(clessh + " " + msg), adr)
 
-def input(mes_comptes) :
+def input() :
     global setpairs, listmsg, nbmsg
     while(1) :
         (line, adr) = UDPSocket.recvfrom(1024)
         if adr not in setpairs :
             setpairs.add(adr)
+            print("new peer", adr)
             maj(adr)
-        [clessh1, clessh2, corps] = line.split(' ', 2)
+        [n, e, corps] = line.decode().split(' ', 2)
         [reste, signa] = corps.rsplit(' ', 1)
-        clessh = clessh1 + " " + clessh2
-        print("nbmessages", nbmsg)
-        if checksign(clessh, reste, signa) :
-            if clessh not in listmsg or not corps in listmsg[clessh] :
-                for lui in setpairs.difference({adr, moi}) :
-                    UDPSocket.sendto(str.encode(line), lui)
-                nbmsg +=1
-                if nbmsg % 20 == 3 :
-                    mes_comptes.append(createcompte())
-                    output(mes_comptes[-2], mes_comptes[-2], mes_comptes[-2] + 1, mes_comptes[-1] , nbmsg/20 + 1)
-                listmsg[clessh] = listmsg.get(clessh, set()).union({corps})
-                print("msg", reste)
-                monint = int(ascii_to_int(clessh) % 1000)
-                l = map(float, reste.split(" "))
-                if l[0] == monint :
-                    return l
+        l = list(map(float, reste.split(" ")))
+        cle = n + ' ' + e
+        if checksign(int(n), int(e), reste, int(signa, 16)) and\
+        (cle not in listmsg or not corps in listmsg[cle]):
+            print("msg accepte")
+            for lui in setpairs.difference({adr, moi}) :
+                UDPSocket.sendto(line, lui)
+            listmsg[cle] = listmsg.get(cle, set()).union({corps})
+            return [int(n) % 1000] + l
 
 def output(monint, sg, sd, rg, nxtlvl) :
     global UDPSocket, setpairs, moi
-    clessh = getssh(monint)
-    msg = str(float(monint)) + " "  + str(float(sg)) + " " + \
+    (n,e) = getpb()
+    msg = str(float(sg)) + " " + \
     str(float(sd)) + " " + str(float(rg)) + " " + str(float(nxtlvl))
-    UDPSocket.sendto(str.encode(clessh + " " + msg + " " + masign(msg, monint)), moi)
+    UDPSocket.sendto(str.encode(str(n) + " " + str(e) + " " + msg + " " + masign(msg)), moi)

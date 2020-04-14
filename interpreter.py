@@ -4,26 +4,40 @@ import intervals as I
 import os, signal
 from network import *
 
-nbpiece = 500
-seuil = 2
+seuil = 0.66
 
 class Compte :
-    def __init__(self, piece, niveau) :
+    def __init__(self, piece, recu = False, density = 1, niveau = 0) :
         self.trans = dict()
         self.niveau = niveau
         self.piece = piece
         self.defense = set()
+        self.recu = recu
+        self.density = density
 
 def ico(x, y) :
     return I.closedopen(x, y)
 
 lc = dict()
-lc[ico(0, nbpiece)] = Compte({ico(0, nbpiece)}, {0})
-lc[ico(nbpiece, I.inf) | ico(-I.inf, 0)] = Compte(set(), set())
-global comptes_actifs, comptes_morts
-comptes_actifs = ico(0, nbpiece)
-comptes_morts = I.empty()
-mes_comptes = list()
+lc[I.empty()] = Compte(I.empty())
+lc[ico(827, 828)] = Compte(ico(827, 828))
+lc[ico(828, I.inf) | ico(-I.inf, 827)] = Compte(I.empty())
+global vivants, morts, actifs, maxlvl
+vivants = ico(827, 828)
+morts = I.empty()
+actifs = {0 : ico(827, 828)}
+maxlvl = 1
+
+def maj_lvl() :
+    global actifs, maxlvl
+    print(actifs)
+    maxtmp = 0
+    for i in actifs :
+        if i > maxtmp and sizeunion(actifs[i]) > seuil \
+        * sizeunion(actifs[max(0,i - 3)]) :
+            maxtmp = i
+    maxlvl = maxtmp + 1
+    print("new max lvl", maxlvl)
 
 def sousinter(K, k, V) :
     if V == I.empty() or K == I.empty() or k == I.empty() :
@@ -35,18 +49,17 @@ def sousinter(K, k, V) :
     return(v)
 
 def adapte_coupe(K, k, compte) :
-    newc = Compte(set(), compte.niveau)
+    newc = Compte(set(), compte.recu, compte.density, compte.niveau)
     for cle in compte.trans :
         newc.trans[sousinter(K, k, cle[0]), cle[1]] = compte.trans[cle]
-    for piece in compte.piece :
-        newc.piece.add(sousinter(K, k, piece))
+    newc.piece = sousinter(K, k, compte.piece)
     for (sender, receiver, nxtlvl) in compte.defense :
         sender2 = sousinter(K, k, sender)
         receiver2 = sousinter(K, k, receiver)
         newc.defense.add((sender2, receiver2, nxtlvl))
     lc[k] = newc
 
-def check(k, v) :
+def chop(k, v) :
     if k == I.empty() or (k in lc and v in lc) :
         return
     for (cle, compte) in lc.items() :
@@ -59,10 +72,10 @@ def check(k, v) :
                 adapte_coupe(cle, kcommun, compte)
                 adapte_coupe(cle, cle - kcommun, compte)
                 lc.pop(cle)
-            check(vcommun, kcommun)
-            check(k, v)
+            chop(vcommun, kcommun)
+            chop(k, v)
             break
-    check(v, k)
+    chop(v, k)
 
 def find_parts(k) :
     return [cle for cle in lc if k.contains(cle)]
@@ -70,94 +83,92 @@ def find_parts(k) :
 def sizeunion(union) :
     if union == I.empty() :
         return 0
-    l = list(union)
     s = 0
-    for i in l :
+    for i in list(union) :
         s+= i.upper - i.lower
     return s
 
-def update(param) :
-    sender, ((receiver, nxtlvl), votants) = param
-    global comptes_actifs, comptes_morts
-    if lc[sender].niveau and min(lc[sender].niveau) > nxtlvl \
-    or lc[sender].piece.issubset(lc[receiver].piece) :
-        return False
-    union = I.empty()
-    selfvote = False
-    for part in find_parts(votants):
-        selfvote |= (part & sender != I.empty())
-        if lc[part].niveau.intersection(lc[sender].niveau) :
-            for piece in lc[part].piece :
-                union |= piece
-    #print("sizeunion", union, sizeunion(union), seuil)
-    if sizeunion(union) < seuil or not selfvote:
-        return False
-    if not lc[receiver].piece :
-        comptes_actifs |= receiver
-    comptes_morts |= sender
-    comptes_actifs -= sender
-    lc[receiver].niveau.add(nxtlvl)
-    lc[receiver].piece = lc[receiver].piece.union(lc[sender].piece)
-    for triplet in lc[receiver].defense :
-        recep(receiver, triplet)
-    for (receiver2, nxtlvl2) in lc[receiver].trans :
-        if recep(I.empty(), (receiver, receiver2, nxtlvl2)) :
-            break
-    return True
+def activate(sender, receiver, nxtlvl) :
+    global vivants, morts
+    print("vote validant", receiver, "actifs", actifs, maxlvl)
+    vivants = (vivants | receiver) - sender
+    morts |= sender
+    actifs[nxtlvl] = actifs.get(nxtlvl, I.empty()) | lc[sender].piece
+    maj_lvl()
+    lc[receiver].niveau = nxtlvl
+    lc[receiver].piece = lc[sender].piece
+    lc[receiver].density = lc[sender].density * [0.9,0.8][nxtlvl >= lc[sender].niveau + 2]
+    print("new density", lc[receiver].density)
+    for (s2, r2, n2) in lc[receiver].defense :
+        decoupe(receiver, s2, r2, n2)
+    for (r2, n2) in lc[receiver].trans :
+        decoupe(I.empty(), receiver, r2, n2)
 
-def recep_aux(compte, sender, receiver, nxtlvl) :
-    (vs, rb) = (lc[sender].trans, (receiver, nxtlvl))
-    vs[rb] = vs.get(rb, I.empty()).union(compte)
-    if update(sender, (rb, vs[rb])) :
-        return True
-    if compte != I.empty() :
+def add_vote(compte, sender, receiver, nxtlvl) :
+    vs, rb = lc[sender].trans, (receiver, nxtlvl)
+    vs[rb] = vs.get(rb, I.empty())
+    lc[receiver].recu = True
+    if nxtlvl - 1 <= lc[compte].niveau <= nxtlvl :
+        vs[rb] |= lc[compte].piece & actifs.get(max(0, nxtlvl - 3), I.empty())
+    if lc[sender].piece != I.empty() and lc[receiver].piece == I.empty()\
+    and nxtlvl <= maxlvl + 1 and\
+    sizeunion(vs[rb]) >= seuil * sizeunion(actifs.get(max(0,nxtlvl - 3), I.empty())) :
+        activate(sender, receiver, nxtlvl)
+    else :
         lc[compte].defense.add((sender, receiver, nxtlvl))
-    return False
 
-def recep(param) :
-    compte, (sender, receiver, nxtlvl)
-    sender -= sender & receiver
-    receiver -= sender & receiver
-    check(compte, I.empty())
-    check(sender, receiver)
-    success = False
+def decoupe(compte, sender, receiver, nxtlvl) :
+    sender -= receiver
+    receiver -= sender
+    chop(compte, I.empty())
+    chop(sender, receiver)
     f = find_parts(compte)
-    if not f :
-        f = [I.empty()]
-    newsender, newreceiver = I.empty(), I.empty()
+    newsender = I.empty()
     for senderj in find_parts(sender) :
         receiverj = sousinter(sender, senderj, receiver)
-        if senderj.upper - 1 <= compte <= senderj.lower and\
-         (senderj not in lc or not lc[senderj].trans) :
+        if compte.contains(senderj) and not lc[senderj].trans\
+        and not lc[receiverj].recu and maxlvl - 1 <= nxtlvl <= maxlvl and\
+         lc[senderj].piece != I.empty() :
             newsender |= senderj
-            newreceiver |= receiverj
         for comptei in f:
             #print("debug compte", comptei, "sender", senderj, "receiver", receiverk, "parts", lc.keys())
-            success |= recep_aux(comptei, senderj, receiverj, nxtlvl)
-    newsenderl, newreceiverl = list(newsender), list(newreceiver)
+            add_vote(comptei, senderj, receiverj, nxtlvl)
+    return [newsender, sousinter(sender, newsender, receiver)]
+
+def recep(compte, sender, receiver, nxtlvl) :
+    [newsenderl, newreceiverl] = map(list, decoupe(compte, sender, receiver, nxtlvl))
     if newsenderl != [I.empty()] :
         for (i, senderk) in enumerate(newsenderl) :
-            for j in mes_comptes :
-                output(j, senderk.lower, senderk.upper, newreceiverl[i].lower, nxtlvl)
-    return success
+            output(monint, senderk.lower, senderk.upper, newreceiverl[i].lower, nxtlvl)
 
-askip()
-monint = createcompte()
-mes_comptes.append(monint)
+def monfric(compte) :
+    envie = compte & vivants
+    somme = 0.
+    for itv in lc :
+        mapart = itv & envie
+        if mapart != I.empty() :
+            somme += sizeunion(mapart) * lc[itv].density
+    return somme
+
+if askip() :
+    monint = distrib_init()
+else :
+    monint = createcompte()
 
 while(1) :
     child = os.fork()
     if not child :
         while(1) :
             l = sys.stdin.readline().rstrip().split(" ")
-            if len(l) == 4 :
-                [sl, su, rl, nxtlvl] = map(float,l)
-                output(mes_comptes[-1], sl, su, rl, nxtlvl)
+            if len(l) == 3 :
+                [sl, su, rl] = map(float,l)
+                output(monint, sl, su, rl, maxlvl)
             else :
                 print("ligne invalide")
-    print("dead :", comptes_morts)
-    print("position :", comptes_actifs)
-    print("compte :", ico(mes_comptes[-1], mes_comptes[-1] + 1))
-    [compte, sl, su, rl, nxtlvl] = input(mes_comptes)
-    recep(ico(compte, compte + 1), (ico(sl, su), ico(rl,rl + su - sl), nxtlvl))
+    print("dead :", morts)
+    print("position :", vivants)
+    print("compte :", ico(monint, monint + 1))
+    print("monfric :", monfric(ico(monint, monint + 1)))
+    [compte, sl, su, rl, nxtlvl] = input()
+    recep(ico(compte, compte + 1), ico(sl, su), ico(rl,rl + su - sl), nxtlvl)
     os.kill(child, signal.SIGTERM)
