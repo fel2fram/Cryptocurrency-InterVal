@@ -18,6 +18,9 @@ def askip() :
     UDPSocket.bind(moi)
     setpairs.add(moi)
     setpairs.add((sys.stdin.readline().rstrip(), int(sys.stdin.readline().rstrip())))
+    if moi[1] == 3000 :
+        return True
+    return False
 
 def maj(adr):
     global listmsg
@@ -37,7 +40,7 @@ def input() :
         [reste, signa] = corps.rsplit(' ', 1)
         clessh = clessh1 + " " + clessh2
         l = map(float, reste.split(" "))
-        print("msg", reste)
+        print("msg", int(ascii_to_int(clessh) % 1000), reste)
         if checksign(clessh, reste, signa) and\
         clessh not in listmsg or not corps in listmsg[clessh]:
             print("msg accepte")
