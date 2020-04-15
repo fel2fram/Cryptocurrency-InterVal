@@ -6,6 +6,10 @@ global keyPair
 def getpb():
     return(keyPair.n, keyPair.e)
 
+def getkeyPair():
+    global keyPair
+    return keyPair
+
 def masign(msg) :
     global keyPair
     hash = int.from_bytes(sha512(msg.encode()).digest(), byteorder='big')
@@ -23,10 +27,17 @@ def distrib_init() : #pour plus tard
     monint = int(keyPair.n) % 1000
     return monint
 
+def custom_compte(clepv) :
+    print(clepv)
+    global keyPair
+    keyPair = RSA.importKey(clepv)
+    monint = int(keyPair.n) % 1000
+    return monint
+
 def createcompte() :
     global keyPair
     keyPair = RSA.generate(bits=1024)
     clessh = str(keyPair.n) + " " + str(keyPair.e)
-    print("votre clé", keyPair.exportKey('PEM'))
+    print("votre cle", keyPair.exportKey('PEM'))
     monint = int(keyPair.n) % 1000
     return monint

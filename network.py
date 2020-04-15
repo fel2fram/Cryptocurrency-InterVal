@@ -18,9 +18,14 @@ def askip() :
     UDPSocket.bind(moi)
     setpairs.add(moi)
     setpairs.add((sys.stdin.readline().rstrip(), int(sys.stdin.readline().rstrip())))
-    if moi[1] == 3000 :
-        return True
-    return False
+    #print("avez-vous une clé privée ?")
+    clepv = 0 #sys.stdin.readline().rstrip()
+    if clepv :
+        return custom_compte(clepv)
+    elif moi[1] >= 3000 :
+        return distrib_init()
+    else :
+        return createcompte()
 
 def maj(adr):
     global listmsg
@@ -41,12 +46,13 @@ def input() :
         l = list(map(float, reste.split(" ")))
         cle = n + ' ' + e
         if checksign(int(n), int(e), reste, int(signa, 16)) and\
-        (cle not in listmsg or not corps in listmsg[cle]):
+        (cle not in listmsg or not corps in listmsg[cle]) :
             print("msg accepte")
             for lui in setpairs.difference({adr, moi}) :
                 UDPSocket.sendto(line, lui)
             listmsg[cle] = listmsg.get(cle, set()).union({corps})
             return [int(n) % 1000] + l
+        return 0
 
 def output(monint, sg, sd, rg, nxtlvl) :
     global UDPSocket, setpairs, moi

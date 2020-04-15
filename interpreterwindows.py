@@ -153,21 +153,22 @@ def monfric(compte) :
 monint = askip()
 
 while(1) :
-    child = os.fork()
-    if not child :
-        while(1) :
-            l = sys.stdin.readline().rstrip().split(" ")
-            if len(l) == 3 :
-                [sl, su, rl] = map(float,l)
-                output(monint, sl, su, rl, maxlvl)
-            else :
-                print("ligne invalide")
     print("dead :", morts)
     print("position :", vivants)
     print("compte :", ico(monint, monint + 1))
     print("monfric :", monfric(ico(monint, monint + 1)))
-    res = input()
-    if res :
-        [compte, sl, su, rl, nxtlvl] = res
-        recep(ico(compte, compte + 1), ico(sl, su), ico(rl,rl + su - sl), nxtlvl)
-        os.kill(child, signal.SIGTERM)
+    l = sys.stdin.readline().rstrip().split(" ")
+    if len(l) == 3 :
+        [sl, su, rl] = map(float,l)
+        output(monint, sl, su, rl, maxlvl)
+    else :
+        print("ligne invalide")
+        output(0, 0, 0, 0, 0)
+    res = True
+    while res :
+        res = input()
+        if res :
+            [compte, sl, su, rl, nxtlvl] = res
+            recep(ico(compte, compte + 1), ico(sl, su), ico(rl,rl + su - sl), nxtlvl)
+        if nxtlvl == 0 :
+            res = False
